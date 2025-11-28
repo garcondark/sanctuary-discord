@@ -1,0 +1,10 @@
+[Unit]
+Description=Home Sanctuary Weekend Notification (7 AM Sat-Sun)
+
+[Timer]
+OnCalendar=Sat,Sun 07:00:00
+Persistent=false
+Unit=home-sanctuary.service
+
+[Install]
+WantedBy=timers.target

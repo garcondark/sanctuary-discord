@@ -1,0 +1,10 @@
+[Unit]
+Description=Home Sanctuary Weekday Notification (7 PM Mon-Fri)
+
+[Timer]
+OnCalendar=Mon..Fri 19:00:00
+Persistent=false
+Unit=home-sanctuary.service
+
+[Install]
+WantedBy=timers.target

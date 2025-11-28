@@ -1,0 +1,16 @@
+{
+  "name": "home-sanctuary",
+  "version": "1.0.0",
+  "description": "Cleaning task tracker with Discord notifications",
+  "main": "discord-notifier.js",
+  "scripts": {
+    "notify": "node discord-notifier.js",
+    "test": "node discord-notifier.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.3.1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Home Sanctuary - Cleaning Tracker</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;600&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+  <style>
+    :root {
+      --color-daily: #10b981;
+      --color-weekly: #3b82f6;
+      --color-monthly: #8b5cf6;
+      --bg-primary: #faf9f7;
+      --bg-card: #ffffff;
+      --text-primary: #1f2937;
+      --text-secondary: #6b7280;
+      --border-color: #e5e7eb;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: linear-gradient(135deg, #faf9f7 0%, #f3f1ed 100%);
+      min-height: 100vh;
+      color: var(--text-primary);
+    }
+
+    .app-container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 3rem;
+    }
+
+    .app-title {
+      font-family: 'Crimson Pro', Georgia, serif;
+      font-size: 3rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.75rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .app-title svg {
+      color: #d97706;
+    }
+
+    .app-subtitle {
+      color: var(--text-secondary);
+      font-size: 1.1rem;
+    }
+
+    .frequency-section {
+      background: var(--bg-card);
+      border-radius: 16px;
+      padding: 1.5rem 2rem;
+      margin-bottom: 1.5rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05), 0 4px 12px rgba(0,0,0,0.03);
+      border: 1px solid var(--border-color);
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1.25rem;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .section-title-group {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .section-title {
+      font-family: 'Crimson Pro', Georgia, serif;
+      font-size: 1.5rem;
+      font-weight: 600;
+    }
+
+    .section-icon {
+      padding: 0.5rem;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .progress-container {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      min-width: 150px;
+    }
+
+    .progress-bar {
+      flex: 1;
+      height: 8px;
+      background: #e5e7eb;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      border-radius: 4px;
+      transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .progress-text {
+      font-size: 0.875rem;
+      font-weight: 600;
+      min-width: 45px;
+      text-align: right;
+    }
+
+    .task-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .task-item {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 1rem;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      border: 1px solid transparent;
+    }
+
+    .task-item:hover {
+      background: #f9fafb;
+      border-color: var(--border-color);
+    }
+
+    .task-item.completed {
+      opacity: 0.6;
+    }
+
+    .task-checkbox {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      border: 2px solid #d1d5db;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+      flex-shrink: 0;
+    }
+
+    .task-item.completed .task-checkbox {
+      border-color: currentColor;
+      background: currentColor;
+    }
+
+    .task-checkbox svg {
+      opacity: 0;
+      color: white;
+      transition: opacity 0.2s ease;
+    }
+
+    .task-item.completed .task-checkbox svg {
+      opacity: 1;
+    }
+
+    .task-content {
+      flex: 1;
+    }
+
+    .task-name {
+      font-weight: 500;
+      font-size: 1rem;
+      transition: all 0.2s ease;
+    }
+
+    .task-item.completed .task-name {
+      text-decoration: line-through;
+      color: var(--text-secondary);
+    }
+
+    .task-meta {
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      margin-top: 0.25rem;
+    }
+
+    .notification-toast {
+      position: fixed;
+      bottom: 2rem;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 1rem 1.5rem;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-weight: 500;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+      animation: slideUp 0.3s ease;
+      z-index: 1000;
+    }
+
+    .notification-toast.success {
+      background: #10b981;
+      color: white;
+    }
+
+    .notification-toast.error {
+      background: #ef4444;
+      color: white;
+    }
+
+    .notification-toast.loading {
+      background: #3b82f6;
+      color: white;
+    }
+
+    @keyframes slideUp {
+      from {
+        opacity: 0;
+        transform: translateX(-50%) translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+      }
+    }
+
+    .settings-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      padding: 1rem;
+    }
+
+    .settings-content {
+      background: white;
+      border-radius: 16px;
+      padding: 2rem;
+      width: 100%;
+      max-width: 500px;
+      box-shadow: 0 25px 50px rgba(0,0,0,0.25);
+    }
+
+    .settings-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.5rem;
+    }
+
+    .settings-header h3 {
+      font-family: 'Crimson Pro', Georgia, serif;
+      font-size: 1.5rem;
+    }
+
+    .close-button {
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 0.5rem;
+      color: var(--text-secondary);
+      border-radius: 8px;
+      transition: background 0.2s ease;
+    }
+
+    .close-button:hover {
+      background: #f3f4f6;
+    }
+
+    .form-group {
+      margin-bottom: 1.5rem;
+    }
+
+    .form-group label {
+      display: block;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+    }
+
+    .form-input {
+      width: 100%;
+      padding: 0.75rem 1rem;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      font-size: 1rem;
+      transition: border-color 0.2s ease;
+    }
+
+    .form-input:focus {
+      outline: none;
+      border-color: var(--color-weekly);
+    }
+
+    .form-group small {
+      display: block;
+      margin-top: 0.5rem;
+      color: var(--text-secondary);
+      font-size: 0.85rem;
+    }
+
+    .action-buttons {
+      display: flex;
+      gap: 0.75rem;
+      margin-bottom: 2rem;
+      flex-wrap: wrap;
+    }
+
+    .action-button {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.75rem 1.25rem;
+      border-radius: 10px;
+      font-weight: 600;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      border: none;
+    }
+
+    .send-button {
+      background: var(--color-weekly);
+      color: white;
+    }
+
+    .send-button:hover {
+      background: #2563eb;
+      transform: translateY(-1px);
+    }
+
+    .settings-button {
+      background: #f3f4f6;
+      color: var(--text-primary);
+      border: 1px solid var(--border-color);
+    }
+
+    .settings-button:hover {
+      background: #e5e7eb;
+    }
+
+    .save-button {
+      width: 100%;
+      padding: 0.875rem;
+      background: var(--color-weekly);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: background 0.2s ease;
+    }
+
+    .save-button:hover {
+      background: #2563eb;
+    }
+
+    @media (max-width: 640px) {
+      .app-container {
+        padding: 1rem;
+      }
+      
+      .app-title {
+        font-size: 2rem;
+      }
+      
+      .frequency-section {
+        padding: 1.25rem;
+      }
+      
+      .section-header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      
+      .progress-container {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+
+    // Icon components using Lucide
+    const Icon = ({ name, size = 24, ...props }) => {
+      const ref = React.useRef(null);
+      useEffect(() => {
+        if (ref.current) {
+          ref.current.innerHTML = '';
+          const icon = lucide.icons[name];
+          if (icon) {
+            const svg = lucide.createElement(icon);
+            svg.setAttribute('width', size);
+            svg.setAttribute('height', size);
+            Object.entries(props).forEach(([key, value]) => {
+              if (key === 'strokeWidth') svg.setAttribute('stroke-width', value);
+              if (key === 'color') svg.setAttribute('stroke', value);
+            });
+            ref.current.appendChild(svg);
+          }
+        }
+      }, [name, size, props]);
+      return <span ref={ref} style={{ display: 'inline-flex', alignItems: 'center' }} />;
+    };
+
+    function CleaningTracker() {
+      const [tasks, setTasks] = useState(() => {
+        const saved = localStorage.getItem('cleaningTasks');
+        return saved ? JSON.parse(saved) : {
+          daily: [
+            { id: 1, name: 'Make beds', completed: false, lastDone: null },
+            { id: 2, name: 'Wash dishes', completed: false, lastDone: null },
+            { id: 3, name: 'Wipe kitchen counters', completed: false, lastDone: null },
+            { id: 4, name: 'Sweep kitchen floor', completed: false, lastDone: null },
+            { id: 5, name: 'Take out trash', completed: false, lastDone: null }
+          ],
+          weekly: [
+            { id: 6, name: 'Vacuum all rooms', completed: false, lastDone: null, dayOfWeek: 6 },
+            { id: 7, name: 'Mop floors', completed: false, lastDone: null, dayOfWeek: 6 },
+            { id: 8, name: 'Clean bathrooms', completed: false, lastDone: null, dayOfWeek: 0 },
+            { id: 9, name: 'Change bed linens', completed: false, lastDone: null, dayOfWeek: 0 },
+            { id: 10, name: 'Dust surfaces', completed: false, lastDone: null, dayOfWeek: 3 },
+            { id: 11, name: 'Clean mirrors & windows', completed: false, lastDone: null, dayOfWeek: 3 }
+          ],
+          monthly: [
+            { id: 12, name: 'Deep clean refrigerator', completed: false, lastDone: null, dayOfMonth: 1 },
+            { id: 13, name: 'Clean oven', completed: false, lastDone: null, dayOfMonth: 1 },
+            { id: 14, name: 'Wash windows', completed: false, lastDone: null, dayOfMonth: 15 },
+            { id: 15, name: 'Organize closets', completed: false, lastDone: null, dayOfMonth: 15 },
+            { id: 16, name: 'Vacuum under furniture', completed: false, lastDone: null, dayOfMonth: 1 },
+            { id: 17, name: 'Clean baseboards', completed: false, lastDone: null, dayOfMonth: 15 }
+          ]
+        };
+      });
+
+      const [webhookUrl, setWebhookUrl] = useState(() => 
+        localStorage.getItem('discordWebhook') || ''
+      );
+      const [showSettings, setShowSettings] = useState(false);
+      const [tempWebhook, setTempWebhook] = useState(webhookUrl);
+      const [notificationStatus, setNotificationStatus] = useState(null);
+
+      useEffect(() => {
+        localStorage.setItem('cleaningTasks', JSON.stringify(tasks));
+      }, [tasks]);
+
+      const toggleTask = (frequency, taskId) => {
+        setTasks(prev => ({
+          ...prev,
+          [frequency]: prev[frequency].map(task =>
+            task.id === taskId
+              ? {
+                  ...task,
+                  completed: !task.completed,
+                  lastDone: !task.completed ? new Date().toISOString() : task.lastDone
+                }
+              : task
+          )
+        }));
+      };
+
+      const getProgress = (frequency) => {
+        const taskList = tasks[frequency];
+        const completed = taskList.filter(t => t.completed).length;
+        return Math.round((completed / taskList.length) * 100);
+      };
+
+      const formatDate = (dateString) => {
+        if (!dateString) return 'Never';
+        const date = new Date(dateString);
+        const today = new Date();
+        const diffDays = Math.floor((today - date) / (1000 * 60 * 60 * 24));
+        
+        if (diffDays === 0) return 'Today';
+        if (diffDays === 1) return 'Yesterday';
+        if (diffDays < 7) return `${diffDays} days ago`;
+        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      };
+
+      const getTodaysTasks = () => {
+        const today = new Date();
+        const dayOfWeek = today.getDay();
+        const dayOfMonth = today.getDate();
+        
+        return {
+          daily: tasks.daily.filter(t => !t.completed),
+          weekly: tasks.weekly.filter(t => !t.completed && t.dayOfWeek === dayOfWeek),
+          monthly: tasks.monthly.filter(t => !t.completed && t.dayOfMonth === dayOfMonth)
+        };
+      };
+
+      const sendDiscordNotification = async () => {
+        if (!webhookUrl) {
+          setNotificationStatus({ type: 'error', message: 'Please set your Discord webhook URL in settings' });
+          setTimeout(() => setNotificationStatus(null), 3000);
+          return;
+        }
+
+        const dueTasks = getTodaysTasks();
+        const totalDue = dueTasks.daily.length + dueTasks.weekly.length + dueTasks.monthly.length;
+
+        if (totalDue === 0) {
+          setNotificationStatus({ type: 'success', message: 'No tasks due today! 🎉' });
+          setTimeout(() => setNotificationStatus(null), 3000);
+          return;
+        }
+
+        setNotificationStatus({ type: 'loading', message: 'Sending to Discord...' });
+
+        const today = new Date();
+        const dateString = today.toLocaleDateString('en-US', { 
+          weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
+        });
+
+        const fields = [];
+        if (dueTasks.daily.length > 0) {
+          fields.push({ name: '📅 Daily Tasks', value: dueTasks.daily.map(t => `• ${t.name}`).join('\n'), inline: false });
+        }
+        if (dueTasks.weekly.length > 0) {
+          fields.push({ name: '📆 Weekly Tasks', value: dueTasks.weekly.map(t => `• ${t.name}`).join('\n'), inline: false });
+        }
+        if (dueTasks.monthly.length > 0) {
+          fields.push({ name: '🗓️ Monthly Tasks', value: dueTasks.monthly.map(t => `• ${t.name}`).join('\n'), inline: false });
+        }
+
+        const payload = {
+          embeds: [{
+            title: '🏠 Home Sanctuary - Today\'s Cleaning Tasks',
+            description: `Here are your cleaning tasks for **${dateString}**`,
+            color: 0x3b82f6,
+            fields: fields,
+            footer: { text: `${totalDue} task${totalDue !== 1 ? 's' : ''} to complete today` },
+            timestamp: today.toISOString()
+          }]
+        };
+
+        try {
+          const response = await fetch(webhookUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+
+          if (response.ok) {
+            setNotificationStatus({ type: 'success', message: 'Sent to Discord!' });
+          } else {
+            setNotificationStatus({ type: 'error', message: 'Failed to send notification' });
+          }
+        } catch (error) {
+          setNotificationStatus({ type: 'error', message: 'Network error' });
+        }
+
+        setTimeout(() => setNotificationStatus(null), 3000);
+      };
+
+      const saveSettings = () => {
+        setWebhookUrl(tempWebhook);
+        localStorage.setItem('discordWebhook', tempWebhook);
+        setShowSettings(false);
+        setNotificationStatus({ type: 'success', message: 'Settings saved!' });
+        setTimeout(() => setNotificationStatus(null), 2000);
+      };
+
+      const FrequencySection = ({ title, frequency, iconName, color }) => (
+        <div className="frequency-section">
+          <div className="section-header">
+            <div className="section-title-group">
+              <div className="section-icon" style={{ background: `${color}15` }}>
+                <Icon name={iconName} size={24} color={color} />
+              </div>
+              <h2 className="section-title">{title}</h2>
+            </div>
+            <div className="progress-container">
+              <div className="progress-bar">
+                <div 
+                  className="progress-fill" 
+                  style={{ width: `${getProgress(frequency)}%`, background: color }}
+                />
+              </div>
+              <span className="progress-text" style={{ color }}>{getProgress(frequency)}%</span>
+            </div>
+          </div>
+          <div className="task-list">
+            {tasks[frequency].map(task => (
+              <div 
+                key={task.id}
+                className={`task-item ${task.completed ? 'completed' : ''}`}
+                onClick={() => toggleTask(frequency, task.id)}
+                style={{ '--task-color': color }}
+              >
+                <div className="task-checkbox" style={{ color }}>
+                  <Icon name="check" size={14} />
+                </div>
+                <div className="task-content">
+                  <div className="task-name">{task.name}</div>
+                  <div className="task-meta">Last done: {formatDate(task.lastDone)}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+
+      return (
+        <div className="app-container">
+          <div className="header">
+            <h1 className="app-title">
+              <Icon name="sparkles" size={40} strokeWidth={1.5} />
+              Home Sanctuary
+            </h1>
+            <p className="app-subtitle">Keep your space clean and organized with ease</p>
+          </div>
+
+          <div className="action-buttons">
+            <button className="action-button send-button" onClick={sendDiscordNotification}>
+              <Icon name="send" size={18} />
+              Send Today's Tasks to Discord
+            </button>
+            <button className="action-button settings-button" onClick={() => { setTempWebhook(webhookUrl); setShowSettings(true); }}>
+              <Icon name="settings" size={18} />
+              Settings
+            </button>
+          </div>
+
+          <FrequencySection title="Daily Tasks" frequency="daily" iconName="home" color="var(--color-daily)" />
+          <FrequencySection title="Weekly Tasks" frequency="weekly" iconName="calendar" color="var(--color-weekly)" />
+          <FrequencySection title="Monthly Tasks" frequency="monthly" iconName="sparkles" color="var(--color-monthly)" />
+
+          {notificationStatus && (
+            <div className={`notification-toast ${notificationStatus.type}`}>
+              <Icon name={notificationStatus.type === 'success' ? 'check' : notificationStatus.type === 'error' ? 'x' : 'bell'} size={18} />
+              {notificationStatus.message}
+            </div>
+          )}
+
+          {showSettings && (
+            <div className="settings-modal" onClick={(e) => e.target === e.currentTarget && setShowSettings(false)}>
+              <div className="settings-content">
+                <div className="settings-header">
+                  <h3>Discord Settings</h3>
+                  <button className="close-button" onClick={() => setShowSettings(false)}>
+                    <Icon name="x" size={20} />
+                  </button>
+                </div>
+                <div className="form-group">
+                  <label>Discord Webhook URL</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="https://discord.com/api/webhooks/..."
+                    value={tempWebhook}
+                    onChange={(e) => setTempWebhook(e.target.value)}
+                  />
+                  <small>
+                    Create a webhook in your Discord server: Server Settings → Integrations → Webhooks → New Webhook
+                  </small>
+                </div>
+                <button className="save-button" onClick={saveSettings}>
+                  Save Settings
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<CleaningTracker />);
+  </script>
+</body>
+</html>
