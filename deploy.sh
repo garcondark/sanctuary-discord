@@ -33,18 +33,14 @@ apt-get install -y nginx nodejs npm
 echo ""
 echo "📁 Creating installation directory..."
 mkdir -p "$INSTALL_DIR"
+cp "$SCRIPT_DIR/api-server.js" "$INSTALL_DIR/"
 cp "$SCRIPT_DIR/discord-notifier.js" "$INSTALL_DIR/"
 cp "$SCRIPT_DIR/package.json" "$INSTALL_DIR/"
 cp -r "$SCRIPT_DIR/web" "$INSTALL_DIR/"
 
-# Create .env file if it doesn't exist
-if [ ! -f "$INSTALL_DIR/.env" ]; then
-  echo ""
-  echo "🔑 Setting up environment..."
-  read -p "Enter your Discord Webhook URL: " WEBHOOK_URL
-  echo "DISCORD_WEBHOOK_URL=$WEBHOOK_URL" > "$INSTALL_DIR/.env"
-  chmod 600 "$INSTALL_DIR/.env"
-fi
+# Make scripts executable
+chmod +x "$INSTALL_DIR/api-server.js"
+chmod +x "$INSTALL_DIR/discord-notifier.js"
 
 echo ""
 echo "📦 Installing Node.js dependencies..."
@@ -55,19 +51,33 @@ npm install --production
 chown -R "$ACTUAL_USER:$ACTUAL_USER" "$INSTALL_DIR"
 
 echo ""
-echo "⚙️  Installing systemd service and timers..."
-cp "$SCRIPT_DIR/systemd/home-sanctuary.service" /etc/systemd/system/
-cp "$SCRIPT_DIR/systemd/home-sanctuary-weekday.timer" /etc/systemd/system/
-cp "$SCRIPT_DIR/systemd/home-sanctuary-weekend.timer" /etc/systemd/system/
+echo "⚙️  Installing systemd services and timers..."
+cp "$SCRIPT_DIR/systemd/home-sanctuary-api.service" /etc/systemd/system/
+cp "$SCRIPT_DIR/systemd/home-sanctuary-notify.service" /etc/systemd/system/
+cp "$SCRIPT_DIR/systemd/home-sanctuary-weekday-weekly-monthly.timer" /etc/systemd/system/
+cp "$SCRIPT_DIR/systemd/home-sanctuary-weekday-daily.timer" /etc/systemd/system/
+cp "$SCRIPT_DIR/systemd/home-sanctuary-weekend-weekly-monthly.timer" /etc/systemd/system/
+cp "$SCRIPT_DIR/systemd/home-sanctuary-weekend-daily.timer" /etc/systemd/system/
 
-# Update service file with actual username
-sed -i "s/User=claude/User=$ACTUAL_USER/" /etc/systemd/system/home-sanctuary.service
+# Update service files with actual username
+sed -i "s/User=claude/User=$ACTUAL_USER/" /etc/systemd/system/home-sanctuary-api.service
+sed -i "s/User=claude/User=$ACTUAL_USER/" /etc/systemd/system/home-sanctuary-notify.service
 
 systemctl daemon-reload
-systemctl enable home-sanctuary-weekday.timer
-systemctl enable home-sanctuary-weekend.timer
-systemctl start home-sanctuary-weekday.timer
-systemctl start home-sanctuary-weekend.timer
+
+# Enable and start API service
+systemctl enable home-sanctuary-api.service
+systemctl start home-sanctuary-api.service
+
+# Enable and start timers
+systemctl enable home-sanctuary-weekday-weekly-monthly.timer
+systemctl enable home-sanctuary-weekday-daily.timer
+systemctl enable home-sanctuary-weekend-weekly-monthly.timer
+systemctl enable home-sanctuary-weekend-daily.timer
+systemctl start home-sanctuary-weekday-weekly-monthly.timer
+systemctl start home-sanctuary-weekday-daily.timer
+systemctl start home-sanctuary-weekend-weekly-monthly.timer
+systemctl start home-sanctuary-weekend-daily.timer
 
 echo ""
 echo "🌐 Configuring nginx..."
@@ -80,27 +90,47 @@ nginx -t
 systemctl reload nginx
 
 echo ""
-echo "✅ Testing notification script..."
-cd "$INSTALL_DIR"
-sudo -u "$ACTUAL_USER" node discord-notifier.js && echo "✓ Test notification sent!" || echo "⚠️  Test failed - check your webhook URL"
+echo "🔧 Setting up sanctuary.local hostname..."
+if ! grep -q "sanctuary.local" /etc/hosts; then
+  echo "127.0.0.1 sanctuary.local" >> /etc/hosts
+  echo "✓ Added sanctuary.local to /etc/hosts"
+fi
+
+echo ""
+echo "✅ Testing API server..."
+sleep 2
+curl -s http://localhost:3000/health && echo "✓ API server is running!" || echo "⚠️  API server check failed"
 
 echo ""
 echo "╔════════════════════════════════════════════╗"
 echo "║   Deployment Complete!                     ║"
 echo "╚════════════════════════════════════════════╝"
 echo ""
-echo "📊 Timer Status:"
-systemctl list-timers | grep -E "home-sanctuary|NEXT"
+echo "📊 Service Status:"
+systemctl status home-sanctuary-api.service --no-pager -l | head -3
+echo ""
+echo "⏰ Timer Status:"
+systemctl list-timers | grep -E "sanctuary|NEXT|LEFT"
 echo ""
 LOCAL_IP=$(hostname -I | awk '{print $1}')
 echo "🌐 Web UI Access:"
-echo "   On this machine:    http://localhost"
-echo "   From other devices: http://$LOCAL_IP"
+echo "   Local:              http://sanctuary.local"
+echo "   By IP:              http://$LOCAL_IP"
+echo "   From this machine:  http://localhost"
+echo ""
+echo "⚙️  Next Steps:"
+echo "   1. Open http://sanctuary.local in your browser"
+echo "   2. Click 'Settings' to add your Discord webhook URL"
+echo "   3. Start checking off tasks!"
 echo ""
 echo "📝 Useful commands:"
-echo "   View logs:          journalctl -u home-sanctuary -f"
-echo "   Test notification:  cd $INSTALL_DIR && node discord-notifier.js"
+echo "   View API logs:      journalctl -u home-sanctuary-api -f"
+echo "   View notify logs:   journalctl -u home-sanctuary-notify -f"
 echo "   Check timers:       systemctl list-timers | grep sanctuary"
-echo "   Edit webhook:       sudo nano $INSTALL_DIR/.env"
-echo "   Edit tasks:         sudo nano $INSTALL_DIR/discord-notifier.js"
+echo "   Test notification:  cd $INSTALL_DIR && node discord-notifier.js"
+echo "   Restart API:        sudo systemctl restart home-sanctuary-api"
+echo ""
+echo "📅 Notification Schedule:"
+echo "   Weekdays: Weekly/Monthly at 12PM, Daily at 7PM"
+echo "   Weekends: Weekly/Monthly at 7AM, Daily at 12PM"
 echo ""

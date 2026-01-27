@@ -1,363 +1,236 @@
-# Home Sanctuary
+# Home Sanctuary - Cleaning Task Tracker
 
-Cleaning task tracker with scheduled Discord notifications, designed to run 24/7 on a NanoPC-T6 (or any Ubuntu server).
+A beautiful, functional web-based cleaning task tracker with Discord notifications and multi-device sync.
 
 ## Features
 
-- **Web UI** — Track daily, weekly, and monthly cleaning tasks from any device on your network
-- **Discord Notifications** — Automated reminders at 7 PM on weekdays and 7 AM on weekends
-- **Persistent Storage** — Tasks saved in browser localStorage
-- **Reliable Scheduling** — Systemd timers with automatic start on boot
+- ✨ **Beautiful UI** - Elegant, responsive interface with smooth animations
+- 🔄 **Multi-Device Sync** - Tasks sync automatically across all devices
+- 📱 **Discord Notifications** - Automated reminders sent to Discord
+- ⏰ **Smart Scheduling** - Different notification times for weekdays and weekends
+- 📊 **Progress Tracking** - Visual progress bars for each task category
+- 🎯 **Task Categories** - Daily, Weekly, and Monthly tasks
 
-## Quick Start (On Your NanoPC-T6)
+## Installation
 
-These instructions assume you're working directly on your NanoPC-T6 (e.g., using Claude in the browser on the SBC itself).
+### Prerequisites
 
-### 1. Download the Project
+- Ubuntu/Debian-based Linux system
+- Root/sudo access
+- Node.js and npm (installed automatically)
+- nginx (installed automatically)
 
-Download the `cleaning-bot` folder from Claude to your Downloads folder, then open a terminal:
+### Quick Install
 
-```bash
-# Move to your home directory
-cd ~
-
-# Extract or move the downloaded folder
-mv ~/Downloads/cleaning-bot ~/cleaning-bot
-
-# Or if downloaded as a zip:
-# unzip ~/Downloads/cleaning-bot.zip -d ~/
-```
-
-### 2. Run the Deployment Script
+1. Download all files to a directory
+2. Run the deployment script:
 
 ```bash
-cd ~/cleaning-bot
 sudo bash deploy.sh
 ```
 
-The script will:
-- Install Node.js, npm, and nginx
-- Prompt you for your Discord webhook URL
-- Set up the notification script
-- Configure systemd timers for the notification schedule
-- Deploy the web UI via nginx
-- Send a test notification to verify everything works
+3. Open http://sanctuary.local in your browser
+4. Click "Settings" to add your Discord webhook URL
+5. Start tracking your cleaning tasks!
 
-### 3. Access the Web UI
+## Notification Schedule
 
-Once deployed, open a browser and go to:
-- `http://localhost` (on the NanoPC-T6 itself)
-- `http://YOUR_LOCAL_IP` (from other devices on your network)
+The system sends notifications at different times based on the day and task type:
 
-To find your local IP:
-```bash
-hostname -I | awk '{print $1}'
+**Weekdays (Monday-Friday):**
+- Weekly/Monthly tasks: 12:00 PM
+- Daily tasks: 7:00 PM
+
+**Weekends (Saturday-Sunday):**
+- Weekly/Monthly tasks: 7:00 AM
+- Daily tasks: 12:00 PM
+
+## Architecture
+
+### Frontend
+- Single-page React application
+- Polls backend API every 2 seconds for updates
+- Responsive design for mobile and desktop
+- Located in `/opt/home-sanctuary/web/`
+
+### Backend
+- Express.js API server running on port 3000
+- JSON file storage for tasks and settings
+- Endpoints:
+  - `GET /api/data` - Fetch all tasks and webhook
+  - `POST /api/tasks` - Save tasks
+  - `POST /api/webhook` - Save webhook URL
+  - `POST /api/notify` - Trigger manual notification
+  - `GET /health` - Health check
+
+### Services
+- **home-sanctuary-api.service** - Runs the API server continuously
+- **home-sanctuary-notify.service** - Runs notification script (triggered by timers)
+
+### Timers
+- **home-sanctuary-weekday-weekly-monthly.timer** - Mon-Fri 12:00 PM
+- **home-sanctuary-weekday-daily.timer** - Mon-Fri 7:00 PM
+- **home-sanctuary-weekend-weekly-monthly.timer** - Sat-Sun 7:00 AM
+- **home-sanctuary-weekend-daily.timer** - Sat-Sun 12:00 PM
+
+## File Structure
+
+```
+/opt/home-sanctuary/
+├── api-server.js           # Express API server
+├── discord-notifier.js     # Discord notification script
+├── package.json            # Node.js dependencies
+├── data.json               # Task and webhook storage
+└── web/
+    └── index.html          # Frontend application
+
+/etc/systemd/system/
+├── home-sanctuary-api.service
+├── home-sanctuary-notify.service
+├── home-sanctuary-weekday-weekly-monthly.timer
+├── home-sanctuary-weekday-daily.timer
+├── home-sanctuary-weekend-weekly-monthly.timer
+└── home-sanctuary-weekend-daily.timer
+
+/etc/nginx/sites-available/
+└── home-sanctuary.conf
 ```
 
-## Manual Installation
+## Usage
 
-If you prefer to set things up step-by-step:
+### Web Interface
 
-### 1. Install Dependencies
+Access the web interface at:
+- http://sanctuary.local
+- http://localhost (from the server)
+- http://YOUR_SERVER_IP (from other devices on network)
 
+### Manual Notification
+
+Test notifications manually:
 ```bash
-sudo apt update
-sudo apt install -y nginx nodejs npm
-```
-
-### 2. Set Up the Notification Script
-
-```bash
-sudo mkdir -p /opt/home-sanctuary
-sudo cp discord-notifier.js package.json /opt/home-sanctuary/
-sudo cp -r web /opt/home-sanctuary/
 cd /opt/home-sanctuary
-sudo npm install
+node discord-notifier.js
 ```
 
-### 3. Create Environment File
+### View Logs
+
+API server logs:
+```bash
+journalctl -u home-sanctuary-api -f
+```
+
+Notification logs:
+```bash
+journalctl -u home-sanctuary-notify -f
+```
+
+### Check Timer Status
 
 ```bash
-sudo nano /opt/home-sanctuary/.env
-```
-
-Add your webhook URL:
-```
-DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/YOUR_WEBHOOK_ID/YOUR_WEBHOOK_TOKEN
-```
-
-Then secure the file:
-```bash
-sudo chmod 600 /opt/home-sanctuary/.env
-```
-
-### 4. Install Systemd Service and Timers
-
-```bash
-sudo cp systemd/*.service systemd/*.timer /etc/systemd/system/
-
-# Update the service file with your username
-sudo sed -i "s/User=claude/User=$USER/" /etc/systemd/system/home-sanctuary.service
-
-sudo systemctl daemon-reload
-sudo systemctl enable --now home-sanctuary-weekday.timer
-sudo systemctl enable --now home-sanctuary-weekend.timer
-```
-
-### 5. Configure Nginx
-
-```bash
-sudo cp nginx/home-sanctuary.conf /etc/nginx/sites-available/
-sudo ln -s /etc/nginx/sites-available/home-sanctuary.conf /etc/nginx/sites-enabled/
-sudo nginx -t
-sudo systemctl reload nginx
-```
-
----
-
-## Remote Access (Optional)
-
-If you want to manage your NanoPC-T6 from another computer later:
-
-```bash
-# From another machine on your network:
-ssh your-username@YOUR_NANOPC_IP
-
-# Or set up SSH keys for passwordless login:
-ssh-copy-id your-username@YOUR_NANOPC_IP
-```
-
-To find your NanoPC-T6's IP address (run this on the SBC):
-```bash
-hostname -I | awk '{print $1}'
-```
-
----
-
-## Schedule
-
-| Day | Time | Description |
-|-----|------|-------------|
-| Mon–Fri | 7:00 PM | Evening reminder for weekday tasks |
-| Sat–Sun | 7:00 AM | Morning reminder for weekend tasks |
-
-To modify the schedule, edit the timer files:
-
-```bash
-sudo nano /etc/systemd/system/home-sanctuary-weekday.timer
-sudo nano /etc/systemd/system/home-sanctuary-weekend.timer
-sudo systemctl daemon-reload
-```
-
-## Customizing Tasks
-
-Edit the `TASKS` object in `/opt/home-sanctuary/discord-notifier.js`:
-
-```javascript
-const TASKS = {
-  daily: [
-    { name: 'Make beds' },
-    // Add more daily tasks...
-  ],
-  weekly: [
-    { name: 'Vacuum all rooms', dayOfWeek: 6 },  // 0=Sun, 6=Sat
-    // Add more weekly tasks...
-  ],
-  monthly: [
-    { name: 'Deep clean refrigerator', dayOfMonth: 1 },
-    // Add more monthly tasks...
-  ]
-};
-```
-
----
-
-## Domain Setup (Optional)
-
-You have several options for accessing your Home Sanctuary from a custom domain:
-
-### Option A: Local DNS / Hosts File (LAN Only)
-
-Simplest option for home network access only.
-
-**On each device that needs access**, edit the hosts file:
-
-```bash
-# Linux/Mac: /etc/hosts
-# Windows: C:\Windows\System32\drivers\etc\hosts
-
-192.168.1.100  sanctuary.home
-```
-
-Replace `192.168.1.100` with your NanoPC-T6's local IP.
-
-Then update nginx:
-```bash
-sudo nano /etc/nginx/sites-available/home-sanctuary.conf
-# Change: server_name sanctuary.local _;
-# To:     server_name sanctuary.home _;
-sudo systemctl reload nginx
-```
-
-### Option B: Router DNS (LAN Only)
-
-If your router supports custom DNS entries (common in OpenWrt, pfSense, Unifi):
-
-1. Add a DNS record: `sanctuary.home` → `192.168.1.100`
-2. All devices on your network can now access `http://sanctuary.home`
-
-### Option C: DuckDNS (Free, Internet Access)
-
-For access from anywhere via the internet.
-
-1. **Create account** at [duckdns.org](https://www.duckdns.org/)
-2. **Create a subdomain** (e.g., `mysanctuary.duckdns.org`)
-3. **Install the update script**:
-
-```bash
-mkdir -p ~/duckdns
-cat > ~/duckdns/duck.sh << 'EOF'
-#!/bin/bash
-DOMAIN="mysanctuary"
-TOKEN="your-duckdns-token"
-curl -s "https://www.duckdns.org/update?domains=$DOMAIN&token=$TOKEN&ip=" > ~/duckdns/duck.log
-EOF
-chmod +x ~/duckdns/duck.sh
-```
-
-4. **Add cron job** to keep IP updated:
-```bash
-crontab -e
-# Add:
-*/5 * * * * ~/duckdns/duck.sh
-```
-
-5. **Update nginx** with your domain:
-```bash
-sudo nano /etc/nginx/sites-available/home-sanctuary.conf
-# Change server_name to: mysanctuary.duckdns.org
-sudo systemctl reload nginx
-```
-
-6. **Port forward** port 80 on your router to your NanoPC-T6's IP
-
-### Option D: Cloudflare Tunnel (Recommended for Internet Access)
-
-More secure than port forwarding — no open ports required.
-
-1. **Create Cloudflare account** and add your domain
-2. **Install cloudflared**:
-```bash
-curl -fsSL https://pkg.cloudflare.com/cloudflare-main.gpg | sudo tee /usr/share/keyrings/cloudflare.gpg
-echo "deb [signed-by=/usr/share/keyrings/cloudflare.gpg] https://pkg.cloudflare.com/cloudflared $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/cloudflared.list
-sudo apt update
-sudo apt install cloudflared
-```
-
-3. **Authenticate and create tunnel**:
-```bash
-cloudflared tunnel login
-cloudflared tunnel create home-sanctuary
-cloudflared tunnel route dns home-sanctuary sanctuary.yourdomain.com
-```
-
-4. **Configure the tunnel** (`~/.cloudflared/config.yml`):
-```yaml
-tunnel: YOUR_TUNNEL_ID
-credentials-file: /home/YOUR_USER/.cloudflared/YOUR_TUNNEL_ID.json
-
-ingress:
-  - hostname: sanctuary.yourdomain.com
-    service: http://localhost:80
-  - service: http_status:404
-```
-
-5. **Run as service**:
-```bash
-sudo cloudflared service install
-sudo systemctl enable --now cloudflared
-```
-
-### Option E: Tailscale (Private Network)
-
-Access from anywhere without exposing to the public internet.
-
-1. **Install Tailscale** on your NanoPC-T6:
-```bash
-curl -fsSL https://tailscale.com/install.sh | sh
-sudo tailscale up
-```
-
-2. **Install Tailscale** on your phone/laptop
-3. Access via Tailscale IP: `http://100.x.x.x` or enable MagicDNS for `http://nanopc-t6`
-
----
-
-## Maintenance Commands
-
-```bash
-# View notification logs
-journalctl -u home-sanctuary -f
-
-# Check timer status
 systemctl list-timers | grep sanctuary
-
-# Manually trigger a notification
-cd /opt/home-sanctuary && node discord-notifier.js
-
-# Edit webhook URL
-sudo nano /opt/home-sanctuary/.env
-
-# Restart nginx after config changes
-sudo nginx -t && sudo systemctl reload nginx
 ```
 
-## Hardware Watchdog (Optional)
-
-For maximum reliability, enable the hardware watchdog to auto-reboot on system hangs:
+### Restart API Server
 
 ```bash
-# Install watchdog daemon
-sudo apt install watchdog
-
-# Configure
-sudo nano /etc/watchdog.conf
-# Uncomment: watchdog-device = /dev/watchdog
-# Uncomment: max-load-1 = 24
-
-# Enable
-sudo systemctl enable --now watchdog
+sudo systemctl restart home-sanctuary-api
 ```
+
+## Discord Webhook Setup
+
+1. Open Discord and go to your server
+2. Click Server Settings → Integrations → Webhooks
+3. Click "New Webhook"
+4. Choose a channel for notifications
+5. Copy the webhook URL
+6. In Home Sanctuary, click "Settings" and paste the URL
+
+## Customization
+
+### Modify Tasks
+
+Edit `/opt/home-sanctuary/data.json` to change default tasks, then restart the API:
+```bash
+sudo systemctl restart home-sanctuary-api
+```
+
+### Change Notification Times
+
+Edit the timer files in `/etc/systemd/system/` and reload:
+```bash
+sudo systemctl daemon-reload
+sudo systemctl restart home-sanctuary-*.timer
+```
+
+### Change Port
+
+Edit `/opt/home-sanctuary/api-server.js` and change the PORT variable, then update nginx config.
 
 ## Troubleshooting
 
-**Notification not sending?**
+### Web interface won't load
 ```bash
-# Check webhook URL
-cat /opt/home-sanctuary/.env
+# Check API service
+sudo systemctl status home-sanctuary-api
+
+# Check nginx
+sudo systemctl status nginx
+
+# Test API directly
+curl http://localhost:3000/health
+```
+
+### Notifications not sending
+```bash
+# Check webhook URL is set
+cat /opt/home-sanctuary/data.json | grep webhookUrl
 
 # Test manually
 cd /opt/home-sanctuary && node discord-notifier.js
-```
 
-**Web UI not loading?**
-```bash
-# Check nginx status
-sudo systemctl status nginx
-
-# Check nginx config
-sudo nginx -t
-
-# Check if port 80 is in use
-sudo lsof -i :80
-```
-
-**Timer not firing?**
-```bash
 # Check timer status
-systemctl status home-sanctuary-weekday.timer
-systemctl status home-sanctuary-weekend.timer
-
-# Check system time
-timedatectl
+systemctl list-timers | grep sanctuary
 ```
+
+### Tasks not syncing between devices
+```bash
+# Check API is running
+sudo systemctl status home-sanctuary-api
+
+# Check data file permissions
+ls -la /opt/home-sanctuary/data.json
+
+# View API logs
+journalctl -u home-sanctuary-api -n 50
+```
+
+## Uninstallation
+
+To completely remove Home Sanctuary:
+
+```bash
+sudo bash uninstall.sh
+```
+
+This will:
+- Stop and disable all services and timers
+- Remove systemd files
+- Remove nginx configuration
+- Optionally remove the installation directory
+
+## Security Notes
+
+- The web interface is accessible to anyone on your local network
+- Data is stored in plain text JSON
+- No authentication is implemented
+- Suitable for home use on a trusted network
+- For internet exposure, add authentication and use HTTPS
+
+## License
+
+MIT
+
+## Support
+
+For issues or questions, check the logs and refer to the troubleshooting section above.
