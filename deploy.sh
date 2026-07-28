@@ -28,7 +28,12 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 echo "📦 Installing system dependencies..."
 apt-get update -qq
-apt-get install -y nginx nodejs npm
+# Install nginx, plus nodejs/npm only if they're missing. Installing the distro
+# npm package on a host that already has NodeSource nodejs fails: NodeSource
+# nodejs bundles npm and declares "Conflicts: npm", which aborts the whole apt run.
+apt-get install -y nginx
+command -v node >/dev/null 2>&1 || apt-get install -y nodejs
+command -v npm  >/dev/null 2>&1 || apt-get install -y npm
 
 echo ""
 echo "📁 Creating installation directory..."
