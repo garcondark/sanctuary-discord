@@ -437,34 +437,8 @@
     };
 
     function CleaningTracker() {
-      const [tasks, setTasks] = useState(() => {
-        const saved = localStorage.getItem('cleaningTasks');
-        return saved ? JSON.parse(saved) : {
-          daily: [
-            { id: 1, name: 'Make beds', completed: false, lastDone: null },
-            { id: 2, name: 'Wash dishes', completed: false, lastDone: null },
-            { id: 3, name: 'Wipe kitchen counters', completed: false, lastDone: null },
-            { id: 4, name: 'Sweep kitchen floor', completed: false, lastDone: null },
-            { id: 5, name: 'Take out trash', completed: false, lastDone: null }
-          ],
-          weekly: [
-            { id: 6, name: 'Vacuum all rooms', completed: false, lastDone: null, dayOfWeek: 6 },
-            { id: 7, name: 'Mop floors', completed: false, lastDone: null, dayOfWeek: 6 },
-            { id: 8, name: 'Clean bathrooms', completed: false, lastDone: null, dayOfWeek: 0 },
-            { id: 9, name: 'Change bed linens', completed: false, lastDone: null, dayOfWeek: 0 },
-            { id: 10, name: 'Dust surfaces', completed: false, lastDone: null, dayOfWeek: 3 },
-            { id: 11, name: 'Clean mirrors & windows', completed: false, lastDone: null, dayOfWeek: 3 }
-          ],
-          monthly: [
-            { id: 12, name: 'Deep clean refrigerator', completed: false, lastDone: null, dayOfMonth: 1 },
-            { id: 13, name: 'Clean oven', completed: false, lastDone: null, dayOfMonth: 1 },
-            { id: 14, name: 'Wash windows', completed: false, lastDone: null, dayOfMonth: 15 },
-            { id: 15, name: 'Organize closets', completed: false, lastDone: null, dayOfMonth: 15 },
-            { id: 16, name: 'Vacuum under furniture', completed: false, lastDone: null, dayOfMonth: 1 },
-            { id: 17, name: 'Clean baseboards', completed: false, lastDone: null, dayOfMonth: 15 }
-          ]
-        };
-      });
+      // Task state is loaded from the shared backend (null until the first fetch).
+      const [tasks, setTasks] = useState(null);
 
       const [webhookUrl, setWebhookUrl] = useState(() => 
         localStorage.getItem('discordWebhook') || ''
@@ -473,12 +447,28 @@
       const [tempWebhook, setTempWebhook] = useState(webhookUrl);
       const [notificationStatus, setNotificationStatus] = useState(null);
 
+      // Load shared task state from the backend on mount and poll every 2s so all
+      // devices converge (and scheduled auto-unchecks appear without a manual refresh).
       useEffect(() => {
-        localStorage.setItem('cleaningTasks', JSON.stringify(tasks));
-      }, [tasks]);
+        let active = true;
+        const fetchTasks = async () => {
+          try {
+            const res = await fetch('/api/tasks');
+            if (!res.ok) return;
+            const data = await res.json();
+            if (active && data.tasks) setTasks(data.tasks);
+          } catch (err) {
+            // Network hiccup — keep showing the last known state.
+          }
+        };
+        fetchTasks();
+        const interval = setInterval(fetchTasks, 2000);
+        return () => { active = false; clearInterval(interval); };
+      }, []);
 
-      const toggleTask = (frequency, taskId) => {
-        setTasks(prev => ({
+      const toggleTask = async (frequency, taskId) => {
+        // Optimistic update for a snappy UI; the server response is authoritative.
+        setTasks(prev => prev && ({
           ...prev,
           [frequency]: prev[frequency].map(task =>
             task.id === taskId
@@ -490,10 +480,24 @@
               : task
           )
         }));
+        try {
+          const res = await fetch('/api/toggle', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ frequency, id: taskId })
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (data.tasks) setTasks(data.tasks);
+          }
+        } catch (err) {
+          // Leave the optimistic state; the next poll will reconcile.
+        }
       };
 
       const getProgress = (frequency) => {
-        const taskList = tasks[frequency];
+        const taskList = (tasks && tasks[frequency]) || [];
+        if (taskList.length === 0) return 0;
         const completed = taskList.filter(t => t.completed).length;
         return Math.round((completed / taskList.length) * 100);
       };
@@ -514,7 +518,8 @@
         const today = new Date();
         const dayOfWeek = today.getDay();
         const dayOfMonth = today.getDate();
-        
+
+        if (!tasks) return { daily: [], weekly: [], monthly: [] };
         return {
           daily: tasks.daily.filter(t => !t.completed),
           weekly: tasks.weekly.filter(t => !t.completed && t.dayOfWeek === dayOfWeek),
@@ -633,6 +638,20 @@
           </div>
         </div>
       );
+
+      if (!tasks) {
+        return (
+          <div className="app-container">
+            <div className="header">
+              <h1 className="app-title">
+                <Icon name="sparkles" size={40} strokeWidth={1.5} />
+                Home Sanctuary
+              </h1>
+              <p className="app-subtitle">Loading your tasks…</p>
+            </div>
+          </div>
+        );
+      }
 
       return (
         <div className="app-container">

@@ -5,8 +5,9 @@ Cleaning task tracker with scheduled Discord notifications, designed to run 24/7
 ## Features
 
 - **Web UI** — Track daily, weekly, and monthly cleaning tasks from any device on your network
+- **Multi-Device Sync** — Task completion is stored on the server, so every device sees the same checkboxes (updates appear within ~2 seconds)
+- **Auto-Reset** — Completed tasks automatically uncheck on schedule: daily at midnight, weekly on Sunday, monthly on the 1st (your "Last done" date is preserved)
 - **Discord Notifications** — Automated reminders at 5:45 AM on weekdays and 7 AM on weekends
-- **Persistent Storage** — Tasks saved in browser localStorage
 - **Reliable Scheduling** — Systemd timers with automatic start on boot
 
 ## Quick Start (On Your NanoPC-T6)
@@ -39,8 +40,9 @@ The script will:
 - Install Node.js, npm, and nginx
 - Prompt you for your Discord webhook URL
 - Set up the notification script
+- Start the API server that holds shared task state (systemd service on port 3000)
 - Configure systemd timers for the notification schedule
-- Deploy the web UI via nginx
+- Deploy the web UI via nginx (with `/api` proxied to the API server)
 - Send a test notification to verify everything works
 
 ### 3. Access the Web UI
@@ -65,11 +67,11 @@ sudo apt update
 sudo apt install -y nginx nodejs npm
 ```
 
-### 2. Set Up the Notification Script
+### 2. Set Up the App Files
 
 ```bash
 sudo mkdir -p /opt/home-sanctuary
-sudo cp discord-notifier.js package.json /opt/home-sanctuary/
+sudo cp api-server.js discord-notifier.js package.json /opt/home-sanctuary/
 sudo cp -r web /opt/home-sanctuary/
 cd /opt/home-sanctuary
 sudo npm install
@@ -91,15 +93,21 @@ Then secure the file:
 sudo chmod 600 /opt/home-sanctuary/.env
 ```
 
-### 4. Install Systemd Service and Timers
+### 4. Install Systemd Services and Timers
 
 ```bash
 sudo cp systemd/*.service systemd/*.timer /etc/systemd/system/
 
-# Update the service file with your username
+# Update the service files with your username
 sudo sed -i "s/User=claude/User=$USER/" /etc/systemd/system/home-sanctuary.service
+sudo sed -i "s/User=claude/User=$USER/" /etc/systemd/system/home-sanctuary-api.service
 
 sudo systemctl daemon-reload
+
+# API server (persistent — serves shared task state on port 3000)
+sudo systemctl enable --now home-sanctuary-api.service
+
+# Notification timers
 sudo systemctl enable --now home-sanctuary-weekday.timer
 sudo systemctl enable --now home-sanctuary-weekend.timer
 ```
@@ -168,19 +176,21 @@ copy:
 | Live app files | `/opt/home-sanctuary/` |
 | Live systemd units | `/etc/systemd/system/home-sanctuary*.{service,timer}` |
 | Live config | `/opt/home-sanctuary/.env` |
+| Shared task state | `/opt/home-sanctuary/data.json` (created and managed by the API server) |
 
 Because of this, editing your local files changes nothing until you redeploy.
 
-**Refresh in place** (keeps your `.env` / webhook) — after editing repo files:
+**Refresh in place** (keeps your `.env` / webhook and `data.json`) — after editing repo files:
 
 ```bash
 cd ~/sanctuary-discord
 sudo bash deploy.sh
 ```
 
-`deploy.sh` re-copies the app + timer files, reloads systemd, and **restarts** the timers
-so schedule changes take effect immediately. It only prompts for a webhook URL if
-`/opt/home-sanctuary/.env` doesn't already exist — an existing `.env` is left untouched.
+`deploy.sh` re-copies the app files, reloads systemd, and **restarts** the API service and
+timers so changes take effect immediately. It only prompts for a webhook URL if
+`/opt/home-sanctuary/.env` doesn't already exist — an existing `.env` is left untouched, and
+`data.json` (your task state) is preserved across redeploys.
 
 **Clean re-stand-up** (start fresh):
 
@@ -197,7 +207,35 @@ systemctl list-timers | grep sanctuary
 ```
 
 You should see the weekday timer's next trigger at **05:45** and the weekend timer at
-**07:00**.
+**07:00**. Check the API server with `systemctl status home-sanctuary-api` or
+`curl http://localhost:3000/health`.
+
+## How Task State Works
+
+Task completion is **shared across every device** on your network:
+
+- A small Node server (`api-server.js`) runs continuously as `home-sanctuary-api.service`
+  on port 3000 and stores all task state in `/opt/home-sanctuary/data.json`.
+- nginx serves the web UI and proxies `/api/*` to that server, so any device that opens the
+  page reads and writes the same state. The UI polls every ~2 seconds, so a task you check on
+  your phone appears on your laptop within a couple of seconds.
+- **Auto-reset:** the server automatically unchecks completed tasks when a new period begins
+  (all times local): **daily → every day at 00:00**, **weekly → Sunday at 00:00**,
+  **monthly → the 1st at 00:00**. The "Last done" date is preserved when a task resets. This
+  happens even if no browser is open (and catches up on the next request if the machine was
+  off at the boundary).
+
+The Discord webhook is **not** shared — it stays per-device in the browser (used only by the
+in-page "Send to Discord" button), and the scheduled notifier reads its own webhook from
+`.env`.
+
+Reset the shared task state to defaults at any time:
+
+```bash
+sudo systemctl stop home-sanctuary-api
+sudo rm /opt/home-sanctuary/data.json
+sudo systemctl start home-sanctuary-api   # re-seeds data.json with the default task list
+```
 
 ## Customizing Tasks
 

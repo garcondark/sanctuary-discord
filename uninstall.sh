@@ -23,9 +23,12 @@ systemctl disable home-sanctuary-weekday.timer 2>/dev/null || true
 systemctl disable home-sanctuary-weekend.timer 2>/dev/null || true
 systemctl stop home-sanctuary.service 2>/dev/null || true
 systemctl disable home-sanctuary.service 2>/dev/null || true
+systemctl stop home-sanctuary-api.service 2>/dev/null || true
+systemctl disable home-sanctuary-api.service 2>/dev/null || true
 
 echo "🗑️  Removing systemd files..."
 rm -f /etc/systemd/system/home-sanctuary.service
+rm -f /etc/systemd/system/home-sanctuary-api.service
 rm -f /etc/systemd/system/home-sanctuary-weekday.timer
 rm -f /etc/systemd/system/home-sanctuary-weekend.timer
 systemctl daemon-reload
