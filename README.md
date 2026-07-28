@@ -5,7 +5,7 @@ Cleaning task tracker with scheduled Discord notifications, designed to run 24/7
 ## Features
 
 - **Web UI** — Track daily, weekly, and monthly cleaning tasks from any device on your network
-- **Discord Notifications** — Automated reminders at 7 PM on weekdays and 7 AM on weekends
+- **Discord Notifications** — Automated reminders at 5:45 AM on weekdays and 7 AM on weekends
 - **Persistent Storage** — Tasks saved in browser localStorage
 - **Reliable Scheduling** — Systemd timers with automatic start on boot
 
@@ -138,16 +138,66 @@ hostname -I | awk '{print $1}'
 
 | Day | Time | Description |
 |-----|------|-------------|
-| Mon–Fri | 7:00 PM | Evening reminder for weekday tasks |
+| Mon–Fri | 5:45 AM | Morning reminder for weekday tasks |
 | Sat–Sun | 7:00 AM | Morning reminder for weekend tasks |
 
-To modify the schedule, edit the timer files:
+To modify the schedule, edit the timer files. These live in two places: the repo's
+`systemd/*.timer` files are the source of truth used by `deploy.sh`, while the copies
+under `/etc/systemd/system/` are what actually runs. To change the live schedule directly:
 
 ```bash
 sudo nano /etc/systemd/system/home-sanctuary-weekday.timer
 sudo nano /etc/systemd/system/home-sanctuary-weekend.timer
 sudo systemctl daemon-reload
+# daemon-reload alone does NOT re-arm a running timer — restart it too:
+sudo systemctl restart home-sanctuary-weekday.timer home-sanctuary-weekend.timer
 ```
+
+Prefer editing the repo's `systemd/*.timer` files and re-running `sudo bash deploy.sh`
+(see [Updating / Refreshing an install](#updating--refreshing-an-install)) so your source
+and the live install stay in sync.
+
+## Updating / Refreshing an install
+
+Your local checkout is only the **source**. The running instance is a separate deployed
+copy:
+
+| What | Where |
+|------|-------|
+| Source (this repo) | `~/sanctuary-discord` (wherever you cloned it) |
+| Live app files | `/opt/home-sanctuary/` |
+| Live systemd units | `/etc/systemd/system/home-sanctuary*.{service,timer}` |
+| Live config | `/opt/home-sanctuary/.env` |
+
+Because of this, editing your local files changes nothing until you redeploy.
+
+**Refresh in place** (keeps your `.env` / webhook) — after editing repo files:
+
+```bash
+cd ~/sanctuary-discord
+sudo bash deploy.sh
+```
+
+`deploy.sh` re-copies the app + timer files, reloads systemd, and **restarts** the timers
+so schedule changes take effect immediately. It only prompts for a webhook URL if
+`/opt/home-sanctuary/.env` doesn't already exist — an existing `.env` is left untouched.
+
+**Clean re-stand-up** (start fresh):
+
+```bash
+cd ~/sanctuary-discord
+sudo bash uninstall.sh   # answer N to keep /opt/home-sanctuary + .env, or Y to wipe it
+sudo bash deploy.sh
+```
+
+**Verify what's actually running:**
+
+```bash
+systemctl list-timers | grep sanctuary
+```
+
+You should see the weekday timer's next trigger at **05:45** and the weekend timer at
+**07:00**.
 
 ## Customizing Tasks
 
