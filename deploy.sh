@@ -66,8 +66,8 @@ sed -i "s/User=claude/User=$ACTUAL_USER/" /etc/systemd/system/home-sanctuary.ser
 systemctl daemon-reload
 systemctl enable home-sanctuary-weekday.timer
 systemctl enable home-sanctuary-weekend.timer
-systemctl start home-sanctuary-weekday.timer
-systemctl start home-sanctuary-weekend.timer
+systemctl restart home-sanctuary-weekday.timer
+systemctl restart home-sanctuary-weekend.timer
 
 echo ""
 echo "🌐 Configuring nginx..."

@@ -4,7 +4,7 @@
  * Home Sanctuary - Discord Daily Notification Script
  * 
  * Sends cleaning task reminders to Discord via webhook.
- * Scheduled to run at 7 PM on weekdays, 7 AM on weekends.
+ * Scheduled to run at 5:45 AM on weekdays, 7 AM on weekends.
  */
 
 require('dotenv').config();
@@ -82,7 +82,8 @@ async function sendDiscordNotification() {
     day: 'numeric' 
   });
 
-  const greeting = isWeekend ? 'Good morning! ☀️' : 'Good evening! 🌙';
+  const hour = today.getHours();
+  const greeting = hour < 12 ? 'Good morning! ☀️' : 'Good evening! 🌙';
 
   const fields = [];
 
