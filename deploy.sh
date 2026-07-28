@@ -38,6 +38,7 @@ command -v npm  >/dev/null 2>&1 || apt-get install -y npm
 echo ""
 echo "📁 Creating installation directory..."
 mkdir -p "$INSTALL_DIR"
+cp "$SCRIPT_DIR/api-server.js" "$INSTALL_DIR/"
 cp "$SCRIPT_DIR/discord-notifier.js" "$INSTALL_DIR/"
 cp "$SCRIPT_DIR/package.json" "$INSTALL_DIR/"
 cp -r "$SCRIPT_DIR/web" "$INSTALL_DIR/"
@@ -60,15 +61,21 @@ npm install --production
 chown -R "$ACTUAL_USER:$ACTUAL_USER" "$INSTALL_DIR"
 
 echo ""
-echo "⚙️  Installing systemd service and timers..."
+echo "⚙️  Installing systemd services and timers..."
 cp "$SCRIPT_DIR/systemd/home-sanctuary.service" /etc/systemd/system/
+cp "$SCRIPT_DIR/systemd/home-sanctuary-api.service" /etc/systemd/system/
 cp "$SCRIPT_DIR/systemd/home-sanctuary-weekday.timer" /etc/systemd/system/
 cp "$SCRIPT_DIR/systemd/home-sanctuary-weekend.timer" /etc/systemd/system/
 
-# Update service file with actual username
+# Update service files with actual username
 sed -i "s/User=claude/User=$ACTUAL_USER/" /etc/systemd/system/home-sanctuary.service
+sed -i "s/User=claude/User=$ACTUAL_USER/" /etc/systemd/system/home-sanctuary-api.service
 
 systemctl daemon-reload
+# API server (persistent, serves shared task state)
+systemctl enable home-sanctuary-api.service
+systemctl restart home-sanctuary-api.service
+# Notification timers
 systemctl enable home-sanctuary-weekday.timer
 systemctl enable home-sanctuary-weekend.timer
 systemctl restart home-sanctuary-weekday.timer
@@ -83,6 +90,11 @@ ln -sf /etc/nginx/sites-available/home-sanctuary.conf /etc/nginx/sites-enabled/
 nginx -t
 
 systemctl reload nginx
+
+echo ""
+echo "✅ Checking API server..."
+sleep 2
+curl -sf http://localhost:3000/health >/dev/null && echo "✓ API server is running!" || echo "⚠️  API server check failed - see: journalctl -u home-sanctuary-api -n 50"
 
 echo ""
 echo "✅ Testing notification script..."
@@ -102,8 +114,12 @@ echo "🌐 Web UI Access:"
 echo "   On this machine:    http://localhost"
 echo "   From other devices: http://$LOCAL_IP"
 echo ""
+echo "🔄 Shared task state syncs across all devices on your network."
+echo ""
 echo "📝 Useful commands:"
-echo "   View logs:          journalctl -u home-sanctuary -f"
+echo "   View API logs:      journalctl -u home-sanctuary-api -f"
+echo "   View notify logs:   journalctl -u home-sanctuary -f"
+echo "   Restart API:        sudo systemctl restart home-sanctuary-api"
 echo "   Test notification:  cd $INSTALL_DIR && node discord-notifier.js"
 echo "   Check timers:       systemctl list-timers | grep sanctuary"
 echo "   Edit webhook:       sudo nano $INSTALL_DIR/.env"

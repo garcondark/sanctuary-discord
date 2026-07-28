@@ -1,0 +1,24 @@
+[Unit]
+Description=Home Sanctuary API Server (shared task state)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=claude
+WorkingDirectory=/opt/home-sanctuary
+ExecStart=/usr/bin/node /opt/home-sanctuary/api-server.js
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+# Hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/opt/home-sanctuary
+ProtectHome=read-only
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

@@ -4,6 +4,7 @@
   "description": "Cleaning task tracker with Discord notifications",
   "main": "discord-notifier.js",
   "scripts": {
+    "start": "node api-server.js",
     "notify": "node discord-notifier.js",
     "test": "node discord-notifier.js"
   },
